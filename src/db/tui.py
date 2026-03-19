@@ -1,243 +1,262 @@
-from src.db.backend.memory import (create_record, select_record, update_record, delete_record,
-    create_table, list_tables, get_table
-)
+from typing import Optional, List, Tuple
+from src.db.backend.memory import StudentTable
+from src.db.backend.errors import InvalidAgeError, DuplicateIDError
 
 
-def _print_menu() -> None:
-    # Символ \n обозначает перевод строки.
-    print("\n=== База студентов ===")
-    print("1. Добавить запись")
-    print("2. Показать все записи")
-    print("3. Найти записи по фильтру")
-    print("4. Обновить запись")
-    print("5. Удалить запись")
-    print("6. Создать новую таблицу")  # =
-    print("7. Показать все таблицы") # =
-    print("0. Выход")
+class StudentTUI:
 
+    def __init__(self) -> None:
+        """Инициализация TUI с таблицей студентов."""
+        self.student_table = StudentTable()
+        self.running = False
 
-def _create_new_table() -> None:
-    """Создание новой таблицы"""
-    print("\n--- Создание новой таблицы ---")
-    print("Существующие таблицы:", ", ".join(list_tables()))
+    def run(self) -> None:
+        """Запускает основной цикл текстового пользовательского интерфейса."""
+        self.running = True
+        while self.running:
+            self._print_menu()
+            action = self._get_user_input("Выберите действие: ")
+            self._handle_action(action)
 
-    table_name = input("Введите имя новой таблицы: ").strip()
+    def _print_menu(self) -> None:
+        print("\n=== База студентов ===")
+        print("1. Добавить запись")
+        print("2. Показать все записи")
+        print("3. Найти записи по фильтру")
+        print("4. Обновить запись")
+        print("5. Удалить запись")
+        print("6. Сортировать записи")
+        print("0. Выход")
 
-    try:
-        create_table(table_name)
-    except ValueError as exc:
-        print(f"✗ Ошибка: {exc}")
+    def _get_user_input(self, prompt: str) -> str:
+        """Получает ввод пользователя."""
+        return input(prompt).strip()
 
-
-def _show_tables() -> None:
-    """Показать все таблицы"""
-    print("\n--- Доступные таблицы ---")
-    tables = list_tables()
-    for i, table in enumerate(tables, 1):
-        count = len(get_table(table))
-        print(f"{i}. {table} (записей: {count})")
-
-
-# Функция чтения целочисленного значения из консоли.
-def _read_int(prompt: str) -> int:
-    # Используется цикл с повторением до получения корректного ввода.
-    while True:
-        # Получение строки из консоли с удалением пробельных символов
-        # в начале и в конце строки.
-        raw = input(prompt).strip()
+    def _read_int(self, prompt: str) -> int:
+        """Читает целочисленное значение из консоли."""
+        raw = self._get_user_input(prompt)
         try:
-            # Преобразование строки к целому числу.
             return int(raw)
         except ValueError:
-            # Исключение возникает при невозможности преобразования.
-            # Пользователю выводится сообщение об ошибке,
-            # после чего ввод повторяется.
-            print("Ошибка: введите целое число.")
+            raise ValueError("Ошибка: введите целое число.")
 
-# Функция добавления новой записи в базу данных.
-def _add_student() -> None:
-    print("\nДобавление записи")
-
-    student_id = _read_int("id: ")
-    first_name = input("first_name: ").strip()
-    second_name = input("second_name: ").strip()
-    age = _read_int("age: ")
-    sex = input("sex: ").strip()
-
-    try:
-        # Вызов функции слоя бизнес-логики.
-        record = create_record(student_id, first_name, second_name, age, sex)
-
-        # В случае успешного добавления запись выводится в консоль.
-        print(f"Запись добавлена: {record}")
-
-    except ValueError as exc:
-        # Обработка ошибок валидации.
-        print(f"Ошибка: {exc}")
-
-# Вспомогательная функция вывода списка записей.
-def _print_records(records: list[tuple[int, str, str, int, str]]) -> None:
-    # Проверка на пустой список.
-    if not records:
-        print("Записи не найдены.")
-        return
-
-    # Последовательный вывод записей.
-    for record in records:
-        print(record)
-
-# Функция вывода всех записей из базы данных.
-def _show_all_students() -> None:
-    print("\nСписок записей")
-    _print_records(select_record())
-
-# Функция чтения необязательного целочисленного значения.
-# Пустой ввод интерпретируется как отсутствие фильтра (None).
-def _read_optional_int(prompt: str) -> int | None:
-    while True:
-        raw = input(prompt).strip()
-
+    def _read_optional_int(self, prompt: str) -> Optional[int]:
+        """Читает необязательное целочисленное значение."""
+        raw = self._get_user_input(prompt)
         if raw == "":
             return None
-
         try:
             return int(raw)
         except ValueError:
             print("Ошибка: введите целое число или оставьте поле пустым.")
+            return self._read_optional_int(prompt)
 
-# Функция поиска записей по заданным фильтрам.
-def _find_students_by_filter() -> None:
-    print("\nПоиск по фильтру (Enter = пропустить поле)")
+    def _read_string_optional(self, prompt: str) -> Optional[str]:
+        """Читает необязательное строковое значение."""
+        value = self._get_user_input(prompt)
+        return value if value else None
 
-    student_id = _read_optional_int("id: ")
+    def _print_records(self, records: List[Tuple[int, str, str, int, str]]) -> None:
+        """Выводит список записей."""
+        if not records:
+            print("Записи не найдены.")
+            return
 
-    # Оператор `or` возвращает первое истинное значение.
-    # Если строка после strip() пуста, будет возвращено None.
-    first_name = input("first_name: ").strip() or None
-    second_name = input("second_name: ").strip() or None
+        print(f"\nНайдено записей: {len(records)}")
+        for record in records:
+            print(f"ID: {record[0]}, Имя: {record[1]}, Фамилия: {record[2]}, "
+                  f"Возраст: {record[3]}, Пол: {record[4]}")
 
-    age = _read_optional_int("age: ")
-    sex = input("sex: ").strip() or None
+    def _add_student(self) -> None:
+        """Добавляет новую запись."""
+        print("\n--- Добавление записи ---")
+        try:
+            student_id = self._read_int("ID: ")
+            first_name = self._get_user_input("Имя: ")
+            second_name = self._get_user_input("Фамилия: ")
+            age = self._read_int("Возраст: ")
+            sex = self._get_user_input("Пол (M/F): ")
 
-    records = select_record(
-        student_id=student_id,
-        first_name=first_name,
-        second_name=second_name,
-        age=age,
-        sex=sex,
-    )
+            record = self.student_table.create_record(
+                student_id, first_name, second_name, age, sex
+            )
+            print(f"✓ Запись добавлена: {record}")
+        except (InvalidAgeError, DuplicateIDError) as e:
+            print(f"✗ Ошибка: {e}")
 
-    _print_records(records)
+    def _show_all_students(self) -> None:
+        """Показывает все записи."""
+        print("\n--- Все записи ---")
+        records = self.student_table.select_record()
+        self._print_records(records)
 
+    def _find_students_by_filter(self) -> None:
+        """Ищет записи по фильтру."""
+        print("\n--- Поиск по фильтру ---")
+        print("(Оставьте поле пустым, чтобы пропустить)")
 
+        try:
+            student_id = self._read_optional_int("ID: ")
+            first_name = self._read_string_optional("Имя: ")
+            second_name = self._read_string_optional("Фамилия: ")
+            age = self._read_optional_int("Возраст: ")
+            sex = self._read_string_optional("Пол (M/F): ")
 
+            records = self.student_table.select_record(
+                student_id=student_id,
+                first_name=first_name,
+                second_name=second_name,
+                age=age,
+                sex=sex,
+            )
+            self._print_records(records)
+        except ValueError as e:
+            print(f"✗ Ошибка: {e}")
 
-def _update_student() -> None:
-    """Обновление данных студента"""
-    print("\n--- Обновление записи ---")
+    def _update_student(self) -> None:
+        """Обновляет запись."""
+        print("\n--- Обновление записи ---")
+        try:
+            student_id = self._read_int("ID записи для обновления: ")
+            existing = self.student_table.select_record(student_id=student_id)
+            if not existing:
+                print(f"✗ Запись с ID={student_id} не найдена")
+                return
 
-    student_id = _read_int("id записи для обновления: ")
+            print("Текущие данные:", existing[0])
+            print("(Оставьте поле пустым, чтобы не менять)")
 
-    # Проверяем, существует ли запись
-    existing = select_record(student_id=student_id)
-    if not existing:
-        print(f"✗ Запись с id={student_id} не найдена")
-        return
+            first_name = self._read_string_optional("Новое имя: ")
+            second_name = self._read_string_optional("Новая фамилия: ")
+            age = self._read_optional_int("Новый возраст: ")
+            sex = self._read_string_optional("Новый пол (M/F): ")
 
-    print("Текущие данные:", existing[0])
-    print("(Оставьте поле пустым, чтобы не менять)")
+            updated = self.student_table.update_record(
+                student_id, first_name, second_name, age, sex
+            )
 
-    # Чтение новых значений
-    first_name = input("new first_name (Enter - без изменений): ")
-    first_name = first_name if first_name else None
+            if updated:
+                print(f"✓ Запись обновлена: {updated}")
+            else:
+                print("✗ Не удалось обновить запись")
+        except InvalidAgeError as e:
+            print(f"✗ Ошибка: {e}")
+        except ValueError as e:
+            print(f"✗ Ошибка: {e}")
 
-    second_name = input("new second_name (Enter - без изменений): ")
-    second_name = second_name if second_name else None
+    def _delete_student(self) -> None:
+        """Удаляет запись."""
+        print("\n--- Удаление записи ---")
+        try:
+            student_id = self._read_int("ID записи для удаления: ")
+            existing = self.student_table.select_record(student_id=student_id)
+            if not existing:
+                print(f"✗ Запись с ID={student_id} не найдена")
+                return
 
-    age_input = input("new age (Enter - без изменений): ")
-    age = int(age_input) if age_input else None
+            print("Запись для удаления:", existing[0])
+            confirm = self._get_user_input("Вы уверены? (д/н): ").lower()
 
-    sex = input("new sex (Enter - без изменений): ")
-    sex = sex if sex else None
+            if confirm in ('д', 'yes', 'y', 'да'):
+                deleted = self.student_table.delete_record(student_id)
+                if deleted:
+                    print(f"✓ Запись с ID={student_id} удалена")
+                else:
+                    print("✗ Не удалось удалить запись")
+            else:
+                print("Удаление отменено")
+        except ValueError as e:
+            print(f"✗ Ошибка: {e}")
 
-    try:
-        updated = update_record(student_id, first_name, second_name, age, sex)
+    def _sort_students(self) -> None:
+        """Сортирует записи."""
+        print("\n--- Сортировка записей ---")
+        print("Доступные поля для сортировки:")
+        print("1. ID")
+        print("2. Имя (first_name)")
+        print("3. Фамилия (second_name)")
+        print("4. Возраст (age)")
+        print("5. Пол (sex)")
 
-        if updated:
-            print(f"✓ Запись обновлена: {updated}")
+        field_choice = self._get_user_input("Выберите поле (1-5): ")
+
+        field_map = {
+            '1': 'id',
+            '2': 'first_name',
+            '3': 'second_name',
+            '4': 'age',
+            '5': 'sex'
+        }
+
+        if field_choice not in field_map:
+            print("✗ Неверный выбор поля")
+            return
+
+        order = self._get_user_input("Порядок (1 - по возрастанию, 2 - по убыванию): ")
+        reverse = (order == '2')
+
+        try:
+            all_records = self.student_table.select_record()
+
+            if not all_records:
+                print("Нет записей для сортировки")
+                return
+
+            field_index = {
+                'id': 0,
+                'first_name': 1,
+                'second_name': 2,
+                'age': 3,
+                'sex': 4
+            }[field_map[field_choice]]
+
+            sorted_records = sorted(all_records,
+                                    key=lambda record: record[field_index],
+                                    reverse=reverse)
+
+            print(f"\n✓ Отсортировано по полю '{field_map[field_choice]}' " +
+                  f"({'по возрастанию' if not reverse else 'по убыванию'}):")
+            self._print_records(sorted_records)
+
+        except Exception as e:
+            print(f"✗ Ошибка при сортировке: {e}")
+
+    def _handle_action(self, action: str) -> None:
+        """Обрабатывает выбранное пользователем действие."""
+        actions = {
+            "1": self._add_student,
+            "2": self._show_all_students,
+            "3": self._find_students_by_filter,
+            "4": self._update_student,
+            "5": self._delete_student,
+            "6": self._sort_students,
+            "0": self._exit_program,
+        }
+
+        handler = actions.get(action)
+        if handler:
+            try:
+                handler()
+            except (InvalidAgeError, DuplicateIDError) as e:
+                print(f"✗ Ошибка базы данных: {e}")
+            except ValueError as e:
+                print(f"✗ Ошибка ввода: {e}")
+            except Exception as e:
+                print(f"✗ Непредвиденная ошибка: {e}")
         else:
-            print("✗ Не удалось обновить запись (запись не найдена)")
-    except ValueError as exc:
-        print(f"✗ Ошибка валидации: {exc}")
-
-
-def _delete_student() -> None:
-    """Удаление студента"""
-    print("\n--- Удаление записи ---")
-
-    student_id = _read_int("id записи для удаления: ")
-
-    # Показываем запись перед удалением
-    existing = select_record(student_id=student_id)
-    if not existing:
-        print(f"✗ Запись с id={student_id} не найдена")
-        return
-
-    print("Запись для удаления:", existing[0])
-    confirm = input("Вы уверены? (д/н): ").strip().lower()
-
-    if confirm == 'д' or confirm == 'yes' or confirm == 'y':
-        deleted = delete_record(student_id)
-        if deleted:
-            print(f"✓ Запись с id={student_id} удалена")
-        else:
-            print(f"✗ Не удалось удалить запись")
-    else:
-        print("Удаление отменено")
-def run() -> None:
-    """
-    Запускает основной цикл текстового пользовательского интерфейса.
-
-    Цикл выполняется до тех пор, пока пользователь явно
-    не выберет завершение программы.
-    """
-    while True:
-        # Отображение меню доступных действий.
-        _print_menu()
-
-        # Получение команды пользователя.
-        # Метод strip() удаляет пробельные символы
-        # в начале и в конце строки.
-        action = input("Выберите действие: ").strip()
-
-        # Диспетчеризация пользовательской команды.
-        if action == "1":
-            _add_student()
-
-        elif action == "2":
-            _show_all_students()
-
-        elif action == "3":
-            _find_students_by_filter()
-
-        elif action == "4":
-            _update_student()
-
-        elif action == "5":
-            _delete_student()
-
-        elif action == '6':  # НОВЫЙ ПУНКТ
-            _create_new_table()
-
-        elif action == '7':  # НОВЫЙ ПУНКТ
-            _show_tables()
-
-
-        elif action == "0":
-            # Завершение работы программы.
-            print("Выход из программы.")
-            break
-
-        else:
-            # Обработка некорректного ввода команды.
             print("Неизвестная команда. Повторите ввод.")
+
+    def _exit_program(self) -> None:
+        """Завершает работу программы."""
+        print("Выход из программы.")
+        self.running = False
+
+
+def run() -> None:
+    """Запускает текстовый пользовательский интерфейс."""
+    tui = StudentTUI()
+    tui.run()
+
+
+if __name__ == "__main__":
+    run()

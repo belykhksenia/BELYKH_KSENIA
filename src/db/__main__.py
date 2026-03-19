@@ -1,9 +1,4 @@
-from .tui import run
-
-
-def main():
-    run()
-
+from src.db.tui import run
 
 if __name__ == "__main__":
-    main()
+    run()
