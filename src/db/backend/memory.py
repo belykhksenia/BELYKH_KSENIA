@@ -1,5 +1,5 @@
 from typing import Optional, List
-from .errors import DuplicateIDError, InvalidAgeError
+from .errors import DuplicateIDError, InvalidAgeError, InvalidSortFieldError
 
 type StudentRecord = tuple[int, str, str, int, str]
 
@@ -52,13 +52,13 @@ class StudentTable:
         Выполняет выборку записей из таблицы Student
         в соответствии с переданными фильтрами.
         """
-        # Проверка отсутствия всех фильтров
+        # Проверка отсутствия всех фильтров (пустые строки считаем как "нет фильтра")
         if (
                 student_id is None
-                and first_name is None
-                and second_name is None
+                and (first_name is None or first_name == "")
+                and (second_name is None or second_name == "")
                 and age is None
-                and sex is None
+                and (sex is None or sex == "")
         ):
             return self._students.copy()
 
@@ -70,13 +70,14 @@ class StudentTable:
             # Проверка соответствия каждому фильтру
             if student_id is not None and record[0] != student_id:
                 continue
-            if first_name is not None and record[1] != first_name:
+            # Игнорируем пустые строки
+            if first_name is not None and first_name != "" and record[1] != first_name:
                 continue
-            if second_name is not None and record[2] != second_name:
+            if second_name is not None and second_name != "" and record[2] != second_name:
                 continue
             if age is not None and record[3] != age:
                 continue
-            if sex is not None and record[4] != sex:
+            if sex is not None and sex != "" and record[4] != sex:
                 continue
 
             result.append(record)
@@ -138,28 +139,30 @@ class StudentTable:
         """Очищает таблицу (для тестирования)"""
         self._students.clear()
 
+    def sort_records(self, key: str, reverse: bool = False) -> List[StudentRecord]:
+        """
+        Сортирует записи по выбранному полю.
 
-def sort_records(self, key: str, reverse: bool = False) -> List[StudentRecord]:
-    """
-    Сортирует записи по выбранному полю.
+        Args:
+            key: Поле для сортировки ('id', 'first_name', 'second_name', 'age', 'sex')
+            reverse: False - по возрастанию, True - по убыванию
 
-    Args:
-        key: Поле для сортировки ('id', 'first_name', 'second_name', 'age', 'sex')
-        reverse: False - по возрастанию, True - по убыванию
+        Returns:
+            Отсортированный список записей
+        """
+        field_map = {
+            'id': 0,
+            'first_name': 1,
+            'second_name': 2,
+            'age': 3,
+            'sex': 4
+        }
 
-    Returns:
-        Отсортированный список записей
-    """
-    field_map = {
-        'id': 0,
-        'first_name': 1,
-        'second_name': 2,
-        'age': 3,
-        'sex': 4
-    }
+        if key not in field_map:
+            raise InvalidSortFieldError(
+                f"Недопустимое поле для сортировки: {key}. "
+                f"Допустимые поля: {list(field_map.keys())}"
+            )
 
-    if key not in field_map:
-        raise ValueError(f"Недопустимое поле для сортировки: {key}. Допустимые поля: {list(field_map.keys())}")
-
-    field_index = field_map[key]
-    return sorted(self._students, key=lambda record: record[field_index], reverse=reverse)
+        field_index = field_map[key]
+        return sorted(self._students, key=lambda record: record[field_index], reverse=reverse)

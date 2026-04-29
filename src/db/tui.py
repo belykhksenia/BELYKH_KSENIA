@@ -1,6 +1,6 @@
 from typing import Optional, List, Tuple
 from src.db.backend.memory import StudentTable
-from src.db.backend.errors import InvalidAgeError, DuplicateIDError
+from src.db.backend.errors import InvalidAgeError, DuplicateIDError, InvalidSortFieldError
 
 
 class StudentTUI:
@@ -169,7 +169,7 @@ class StudentTUI:
             print(f"✗ Ошибка: {e}")
 
     def _sort_students(self) -> None:
-        """Сортирует записи."""
+        """Сортирует записи, используя метод БД."""
         print("\n--- Сортировка записей ---")
         print("Доступные поля для сортировки:")
         print("1. ID")
@@ -196,30 +196,24 @@ class StudentTUI:
         reverse = (order == '2')
 
         try:
-            all_records = self.student_table.select_record()
+            # Используем метод sort_records из StudentTable
+            sorted_records = self.student_table.sort_records(
+                key=field_map[field_choice],
+                reverse=reverse
+            )
 
-            if not all_records:
+            if not sorted_records:
                 print("Нет записей для сортировки")
                 return
-
-            field_index = {
-                'id': 0,
-                'first_name': 1,
-                'second_name': 2,
-                'age': 3,
-                'sex': 4
-            }[field_map[field_choice]]
-
-            sorted_records = sorted(all_records,
-                                    key=lambda record: record[field_index],
-                                    reverse=reverse)
 
             print(f"\n✓ Отсортировано по полю '{field_map[field_choice]}' " +
                   f"({'по возрастанию' if not reverse else 'по убыванию'}):")
             self._print_records(sorted_records)
 
+        except InvalidSortFieldError as e:
+            print(f"✗ Ошибка: {e}")
         except Exception as e:
-            print(f"✗ Ошибка при сортировке: {e}")
+            print(f"✗ Непредвиденная ошибка при сортировке: {e}")
 
     def _handle_action(self, action: str) -> None:
         """Обрабатывает выбранное пользователем действие."""
@@ -237,7 +231,7 @@ class StudentTUI:
         if handler:
             try:
                 handler()
-            except (InvalidAgeError, DuplicateIDError) as e:
+            except (InvalidAgeError, DuplicateIDError, InvalidSortFieldError) as e:
                 print(f"✗ Ошибка базы данных: {e}")
             except ValueError as e:
                 print(f"✗ Ошибка ввода: {e}")

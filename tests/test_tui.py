@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from io import StringIO
 from src.db.tui import StudentTUI, run
-from src.db.backend.errors import InvalidAgeError, DuplicateIDError
+from src.db.backend.errors import InvalidAgeError, DuplicateIDError, InvalidSortFieldError
 
 
 class TestStudentTUI(unittest.TestCase):
@@ -141,11 +141,9 @@ class TestStudentTUI(unittest.TestCase):
             self.assertIn("John", output)
             self.assertIn("Jane", output)
 
-    # Добавьте эти тесты в класс TestStudentTUI в файле tests/test_tui.py
-
     def test_sort_students_empty_table(self):
         """Тест сортировки при пустой таблице."""
-        self.tui.student_table.select_record.return_value = []
+        self.tui.student_table.sort_records.return_value = []
 
         with patch('builtins.input', side_effect=["1", "1"]):
             with patch('sys.stdout', new=StringIO()) as fake_out:
@@ -155,14 +153,24 @@ class TestStudentTUI(unittest.TestCase):
 
     def test_sort_students_invalid_field(self):
         """Тест сортировки с неверным выбором поля."""
-        mock_records = [(1, "John", "Doe", 20, "M")]
-        self.tui.student_table.select_record.return_value = mock_records
-
-        with patch('builtins.input', side_effect=["6", "1"]):  # 6 - неверный выбор
+        with patch('builtins.input', side_effect=["6", "1"]):
             with patch('sys.stdout', new=StringIO()) as fake_out:
                 self.tui._sort_students()
                 output = fake_out.getvalue().strip()
                 self.assertIn("Неверный выбор поля", output)
+
+    def test_sort_students_success(self):
+        """Тест успешной сортировки."""
+        mock_records = [(3, "Charlie", "Brown", 22, "M"), (1, "Alice", "Smith", 20, "F")]
+        self.tui.student_table.sort_records.return_value = mock_records
+
+        with patch('builtins.input', side_effect=["1", "1"]):
+            with patch('sys.stdout', new=StringIO()) as fake_out:
+                self.tui._sort_students()
+                output = fake_out.getvalue().strip()
+                self.assertIn("Отсортировано", output)
+
+        self.tui.student_table.sort_records.assert_called_once_with(key='id', reverse=False)
 
     def test_read_optional_int_with_invalid_then_valid(self):
         """Тест чтения опционального числа с неверным вводом, затем верным."""
@@ -172,16 +180,18 @@ class TestStudentTUI(unittest.TestCase):
 
     def test_handle_action_with_database_error(self):
         """Тест обработки действия с ошибкой базы данных."""
-        self.tui.student_table.create_record.side_effect = InvalidAgeError("Test error")
+        tui = StudentTUI()
+        tui.student_table = MagicMock()
 
-        with patch('builtins.input', side_effect=["1", "1", "John", "Doe", "20", "M"]):
-            with patch('sys.stdout', new=StringIO()) as fake_out:
-                # Создаем словарь actions вручную для теста
-                actions = {"1": self.tui._add_student}
-                with patch.dict(self.tui._handle_action.__globals__, {'actions': actions}):
-                    self.tui._handle_action("1")
-                    output = fake_out.getvalue().strip()
-                    self.assertIn("Ошибка базы данных", output)
+        def mock_add():
+            raise InvalidAgeError("Test error")
+
+        tui._add_student = mock_add
+
+        with patch('sys.stdout', new=StringIO()) as fake_out:
+            tui._handle_action("1")
+            output = fake_out.getvalue().strip()
+            self.assertIn("Ошибка базы данных", output)
 
     @patch('builtins.input')
     def test_find_students_by_filter(self, mock_input):
@@ -211,7 +221,6 @@ class TestStudentTUI(unittest.TestCase):
             output = fake_out.getvalue().strip()
             self.assertIn("Запись обновлена", output)
 
-        # Исправлено: ожидаем None для пропущенных полей
         self.tui.student_table.update_record.assert_called_once_with(1, "Johnny", None, 21, None)
 
     @patch('builtins.input')

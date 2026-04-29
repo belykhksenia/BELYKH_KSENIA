@@ -1,6 +1,6 @@
 import unittest
 from src.db.backend.memory import StudentTable
-from src.db.backend.errors import InvalidAgeError, DuplicateIDError
+from src.db.backend.errors import InvalidAgeError, DuplicateIDError, InvalidSortFieldError
 
 
 class TestMemory(unittest.TestCase):
@@ -262,70 +262,63 @@ class TestMemory(unittest.TestCase):
         self.assertEqual(original[0][0], 1)
         self.assertEqual(original[0][1], "John")
 
-    def test_sort_records_by_id(self):
+    def test_sort_records_method_by_id_ascending(self):
+        """Тест сортировки по ID по возрастанию."""
         self.student_table.clear()
         self.student_table.create_record(3, "Charlie", "Brown", 22, "M")
         self.student_table.create_record(1, "Alice", "Smith", 20, "F")
         self.student_table.create_record(2, "Bob", "Johnson", 21, "M")
 
-        all_records = self.student_table.select_record()
+        sorted_records = self.student_table.sort_records(key='id', reverse=False)
+        self.assertEqual([r[0] for r in sorted_records], [1, 2, 3])
 
-        sorted_by_id = sorted(all_records, key=lambda r: r[0])
-        self.assertEqual([r[0] for r in sorted_by_id], [1, 2, 3])
+    def test_sort_records_method_by_id_descending(self):
+        """Тест сортировки по ID по убыванию."""
+        self.student_table.clear()
+        self.student_table.create_record(1, "Alice", "Smith", 20, "F")
+        self.student_table.create_record(2, "Bob", "Johnson", 21, "M")
+        self.student_table.create_record(3, "Charlie", "Brown", 22, "M")
 
-        sorted_by_id_desc = sorted(all_records, key=lambda r: r[0], reverse=True)
-        self.assertEqual([r[0] for r in sorted_by_id_desc], [3, 2, 1])
+        sorted_records = self.student_table.sort_records(key='id', reverse=True)
+        self.assertEqual([r[0] for r in sorted_records], [3, 2, 1])
 
-    def test_sort_records_by_name(self):
+    def test_sort_records_method_by_name(self):
+        """Тест сортировки по имени."""
         self.student_table.clear()
         self.student_table.create_record(1, "Charlie", "Brown", 22, "M")
         self.student_table.create_record(2, "Alice", "Smith", 20, "F")
         self.student_table.create_record(3, "Bob", "Johnson", 21, "M")
 
-        all_records = self.student_table.select_record()
+        sorted_records = self.student_table.sort_records(key='first_name', reverse=False)
+        self.assertEqual([r[1] for r in sorted_records], ["Alice", "Bob", "Charlie"])
 
-        sorted_by_first = sorted(all_records, key=lambda r: r[1])
-        self.assertEqual([r[1] for r in sorted_by_first], ["Alice", "Bob", "Charlie"])
-
-        sorted_by_last = sorted(all_records, key=lambda r: r[2])
-        self.assertEqual([r[2] for r in sorted_by_last], ["Brown", "Johnson", "Smith"])
-
-    def test_sort_records_by_age(self):
+    def test_sort_records_method_by_age(self):
+        """Тест сортировки по возрасту."""
         self.student_table.clear()
         self.student_table.create_record(1, "John", "Doe", 22, "M")
         self.student_table.create_record(2, "Jane", "Smith", 20, "F")
         self.student_table.create_record(3, "Bob", "Brown", 21, "M")
 
-        all_records = self.student_table.select_record()
+        sorted_records = self.student_table.sort_records(key='age', reverse=False)
+        self.assertEqual([r[3] for r in sorted_records], [20, 21, 22])
 
-        sorted_by_age = sorted(all_records, key=lambda r: r[3])
-        self.assertEqual([r[3] for r in sorted_by_age], [20, 21, 22])
-
-        sorted_by_age_desc = sorted(all_records, key=lambda r: r[3], reverse=True)
-        self.assertEqual([r[3] for r in sorted_by_age_desc], [22, 21, 20])
-
-    def test_sort_records_by_sex(self):
+    def test_sort_records_method_by_sex(self):
+        """Тест сортировки по полу."""
         self.student_table.clear()
         self.student_table.create_record(1, "John", "Doe", 20, "M")
         self.student_table.create_record(2, "Jane", "Smith", 22, "F")
         self.student_table.create_record(3, "Bob", "Brown", 21, "M")
 
-        all_records = self.student_table.select_record()
+        sorted_records = self.student_table.sort_records(key='sex', reverse=False)
+        self.assertEqual([r[4] for r in sorted_records], ["F", "M", "M"])
 
-        sorted_by_sex = sorted(all_records, key=lambda r: r[4])
-        self.assertEqual([r[4] for r in sorted_by_sex], ["F", "M", "M"])
-
-    def test_sort_records_with_duplicates(self):
+    def test_sort_records_method_invalid_field(self):
+        """Тест сортировки с неверным полем."""
         self.student_table.clear()
         self.student_table.create_record(1, "John", "Doe", 20, "M")
-        self.student_table.create_record(2, "Jane", "Smith", 20, "F")
-        self.student_table.create_record(3, "Bob", "Brown", 21, "M")
 
-        all_records = self.student_table.select_record()
-        sorted_by_age = sorted(all_records, key=lambda r: r[3])
-        self.assertEqual(sorted_by_age[0][3], 20)
-        self.assertEqual(sorted_by_age[1][3], 20)
-        self.assertEqual(sorted_by_age[2][3], 21)
+        with self.assertRaises(InvalidSortFieldError):
+            self.student_table.sort_records(key='invalid_field')
 
 
 if __name__ == '__main__':
