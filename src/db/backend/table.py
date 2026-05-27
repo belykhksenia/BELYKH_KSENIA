@@ -1,15 +1,12 @@
-"""In-memory реализация через интерфейс."""
+"""Класс таблицы студентов."""
 
 from typing import Optional, List, Tuple
-from .database import DatabaseInterface
 from .errors import DuplicateIDError, InvalidAgeError, InvalidSortFieldError
 
-StudentRecord = Tuple[int, str, str, int, str]
+type StudentRecord = tuple[int, str, str, int, str]
 
 
-class MemoryDatabase(DatabaseInterface):
-    """In-memory реализация базы данных."""
-
+class StudentTable:
     def __init__(self) -> None:
         self._students: list[StudentRecord] = []
 
@@ -21,6 +18,9 @@ class MemoryDatabase(DatabaseInterface):
             age: int,
             sex: str,
     ) -> StudentRecord:
+        """
+        Создаёт новую запись и добавляет её в таблицу Student.
+        """
         if age < 0:
             raise InvalidAgeError("Поле age не может быть отрицательным.")
 
@@ -56,6 +56,7 @@ class MemoryDatabase(DatabaseInterface):
             return self._students.copy()
 
         result: List[StudentRecord] = []
+
         for record in self._students:
             if student_id is not None and record[0] != student_id:
                 continue
@@ -67,7 +68,9 @@ class MemoryDatabase(DatabaseInterface):
                 continue
             if sex is not None and sex != "" and record[4] != sex:
                 continue
+
             result.append(record)
+
         return result
 
     def update_record(
@@ -87,10 +90,13 @@ class MemoryDatabase(DatabaseInterface):
                     age if age is not None else record[3],
                     sex if sex is not None else record[4]
                 )
+
                 if new_record[3] < 0:
                     raise InvalidAgeError("Поле age не может быть отрицательным.")
+
                 self._students[i] = new_record
                 return new_record
+
         return None
 
     def delete_record(self, student_id: int) -> bool:
@@ -98,6 +104,7 @@ class MemoryDatabase(DatabaseInterface):
             if record[0] == student_id:
                 del self._students[i]
                 return True
+
         return False
 
     def get_all_records(self) -> List[StudentRecord]:
@@ -114,7 +121,12 @@ class MemoryDatabase(DatabaseInterface):
             'age': 3,
             'sex': 4
         }
+
         if key not in field_map:
-            raise InvalidSortFieldError(f"Недопустимое поле: {key}")
+            raise InvalidSortFieldError(
+                f"Недопустимое поле для сортировки: {key}. "
+                f"Допустимые поля: {list(field_map.keys())}"
+            )
+
         field_index = field_map[key]
         return sorted(self._students, key=lambda record: record[field_index], reverse=reverse)
