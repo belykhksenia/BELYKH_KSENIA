@@ -223,7 +223,7 @@ class TestStudentTUI:
         mock_input.side_effect = ["999"]
         with patch('builtins.print') as mock_print:
             tui._update_student()
-            mock_print.assert_called_with("✗ Запись с ID=999 не найдена")
+            mock_print.assert_called_with("Запись с ID=999 не найдена")
 
     @patch('builtins.input')
     def test_delete_student_success(self, mock_input, tui):

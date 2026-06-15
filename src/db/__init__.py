@@ -1,7 +1,6 @@
 """Пакет для работы с базой данных студентов."""
 
 from .backend import (
-    StudentTable,
     MemoryDatabase,
     JSONDatabase,
     CSVDatabase,
@@ -13,7 +12,6 @@ from .backend import (
 )
 
 __all__ = [
-    'StudentTable',
     'MemoryDatabase',
     'JSONDatabase',
     'CSVDatabase',
